@@ -1,3 +1,0 @@
-RabbitClient
-============
-Thread safe and channel pool-ed way to talk to RabbitMQ
