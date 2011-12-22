@@ -1,6 +1,10 @@
 package com.convert.rabbit.exchange;
 
 import java.io.IOException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.commons.pool.PoolableObjectFactory;
 import org.apache.commons.pool.impl.GenericObjectPool;
@@ -14,13 +18,15 @@ import com.rabbitmq.client.Channel;
  * This is a thread safe way to talk to an exchange. All the channels used by the exchange are pooled.
  *
  */
-public class Exchange {
+public class Exchange implements IExchange {
 
     private final String _name;
 
     private final Client _client;
 
     private final GenericObjectPool _channelPool;
+
+    private final ExecutorService _executorService = Executors.newCachedThreadPool();
 
     /**
      * An exchange that is is declared from the given client for the given name.
@@ -76,13 +82,14 @@ public class Exchange {
 
     /**
      * Publish a given message to this exchange.
-     * 
+     *
      * @param msg
      *            the message.
      *
      * @throws ConvertAmqpException
      *             in case we encounter an {@link IOException}.
      */
+    @Override
     public void publish(Message msg) throws ConvertAmqpException {
         Channel channel = this.borrowChannel();
         try {
@@ -92,6 +99,29 @@ public class Exchange {
         } finally {
             this.returnChannel(channel);
         }
+    }
+
+    /**
+     * Publish a given message to this exchange asynchronously.
+     *
+     * @param msg
+     *            the message.
+     *
+     * @return a {@link Future}
+     * @throws ConvertAmqpException
+     *             in case we encounter an {@link IOException}.
+     */
+    @Override
+    public Future<Void> asyncPublish(final Message msg) {
+        Callable<Void> callable = new Callable<Void>() {
+
+            @Override
+            public Void call() throws Exception {
+                publish(msg);
+                return null;
+            }
+        };
+        return _executorService.submit(callable);
     }
 
     /**
@@ -127,6 +157,13 @@ public class Exchange {
 
     public String getName() {
         return this._name;
+    }
+
+    /**
+     *
+     */
+    public void shutdown() {
+        _executorService.shutdown();
     }
 
 }

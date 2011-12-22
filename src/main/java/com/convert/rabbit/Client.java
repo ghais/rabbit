@@ -224,7 +224,10 @@ public class Client {
         return t;
     }
 
-    public void close() {
+    public synchronized void close() {
+        for (Exchange e : _exchanges.values()) {
+            e.shutdown();
+        }
         try {
             _connection.close();
         } catch (IOException e) {

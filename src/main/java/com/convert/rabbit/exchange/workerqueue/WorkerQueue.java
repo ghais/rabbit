@@ -3,6 +3,10 @@ package com.convert.rabbit.exchange.workerqueue;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.commons.pool.PoolableObjectFactory;
 import org.apache.commons.pool.impl.GenericObjectPool;
@@ -11,6 +15,7 @@ import com.convert.rabbit.Client;
 import com.convert.rabbit.Message;
 import com.convert.rabbit.exception.ConvertAmqpException;
 import com.convert.rabbit.exchange.Exchange;
+import com.convert.rabbit.exchange.IExchange;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.MessageProperties;
@@ -19,13 +24,16 @@ import com.rabbitmq.client.MessageProperties;
  * A worker queue implementation that publishes messages to a given exchange/queue
  *
  */
-public class WorkerQueue {
+public class WorkerQueue implements IExchange {
 
     private final Exchange _exchange;
 
     private final String _workerQueueName;
 
     private final GenericObjectPool _channelPool;
+
+    private final ExecutorService _executorService;
+
 
     /**
      * Create a worker queue that publishes to the given exchange/queue
@@ -36,6 +44,7 @@ public class WorkerQueue {
     public WorkerQueue(Exchange exchange, String workerQueueName) {
         this._exchange = exchange;
         this._workerQueueName = workerQueueName;
+        this._executorService = Executors.newCachedThreadPool();
         this._channelPool = new GenericObjectPool(new PoolableObjectFactory() {
 
             @Override
@@ -95,6 +104,7 @@ public class WorkerQueue {
      * @throws ConvertAmqpException
      *             in case we encouter an {@link IOException}
      */
+    @Override
     public void publish(Message msg) throws ConvertAmqpException {
         Channel channel = this.borrowChannel();
         try {
@@ -123,6 +133,25 @@ public class WorkerQueue {
 
     public String getName() {
         return this._workerQueueName;
+    }
+
+    @Override
+    public Future<Void> asyncPublish(final Message msg) {
+        Callable<Void> callable = new Callable<Void>() {
+
+            @Override
+            public Void call() throws Exception {
+                publish(msg);
+                return null;
+            }
+        };
+        return _executorService.submit(callable);
+    }
+
+    @Override
+    public void shutdown() {
+        _exchange.shutdown();
+        _executorService.shutdown();
     }
 
 }
