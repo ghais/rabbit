@@ -87,13 +87,17 @@ public class WorkerQueue implements IExchange {
 
     /**
      * @return
+     * @throws IOException
      */
-    public Channel borrowChannel() {
+    public Channel borrowChannel() throws IOException {
         try {
             return (Channel) this._channelPool.borrowObject();
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
             throw new ConvertAmqpException(e);
         }
+
     }
 
     /**
@@ -102,15 +106,14 @@ public class WorkerQueue implements IExchange {
      * @param msg
      *            the message to publish
      * @throws ConvertAmqpException
-     *             in case we encouter an {@link IOException}
+     *             in case we encounter an {@link IOException}
+     * @throws IOException
      */
     @Override
-    public void publish(Message msg) throws ConvertAmqpException {
+    public void publish(Message msg) throws IOException {
         Channel channel = this.borrowChannel();
         try {
             channel.basicPublish(_exchange.getName(), "", MessageProperties.PERSISTENT_BASIC, msg.getBody());
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
         } finally {
             this.returnChannel(channel);
         }

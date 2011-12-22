@@ -5,6 +5,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.logging.Logger;
 
 import org.apache.commons.pool.PoolableObjectFactory;
 import org.apache.commons.pool.impl.GenericObjectPool;
@@ -20,6 +21,8 @@ import com.rabbitmq.client.Channel;
  */
 public class Exchange implements IExchange {
 
+    private final Logger LOG = Logger.getLogger(this.getClass().getName());
+
     private final String _name;
 
     private final Client _client;
@@ -33,8 +36,9 @@ public class Exchange implements IExchange {
      *
      * @param client
      * @param name
+     * @throws IOException
      */
-    public Exchange(Client client, String name) {
+    public Exchange(Client client, String name) throws IOException {
         this._client = client;
         this._name = name;
 
@@ -71,12 +75,8 @@ public class Exchange implements IExchange {
             }
         });
 
-        try {
             Channel c = this.borrowChannel();
             c.exchangeDeclare(_name, "topic", true, false, null);
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
 
     }
 
@@ -86,16 +86,14 @@ public class Exchange implements IExchange {
      * @param msg
      *            the message.
      *
-     * @throws ConvertAmqpException
-     *             in case we encounter an {@link IOException}.
+     *
+     * @throws IOException
      */
     @Override
-    public void publish(Message msg) throws ConvertAmqpException {
+    public void publish(Message msg) throws IOException {
         Channel channel = this.borrowChannel();
         try {
             channel.basicPublish(_name, msg.getRoutingKey(), msg.isMandatory(), msg.isImmedaite(), null, msg.getBody());
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
         } finally {
             this.returnChannel(channel);
         }
@@ -103,13 +101,11 @@ public class Exchange implements IExchange {
 
     /**
      * Publish a given message to this exchange asynchronously.
-     *
+     * 
      * @param msg
      *            the message.
-     *
+     * 
      * @return a {@link Future}
-     * @throws ConvertAmqpException
-     *             in case we encounter an {@link IOException}.
      */
     @Override
     public Future<Void> asyncPublish(final Message msg) {
@@ -131,19 +127,25 @@ public class Exchange implements IExchange {
         try {
             this._channelPool.returnObject(channel);
         } catch (Exception e) {
-            throw new ConvertAmqpException(e);
+            LOG.severe(e.getMessage());
+            // swallowed.
         }
     }
 
     /**
      * @return
+     * @throws Exception
      */
-    private Channel borrowChannel() {
+    private Channel borrowChannel() throws IOException {
         try {
             return (Channel) this._channelPool.borrowObject();
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
+            LOG.severe(e.getMessage());
             throw new ConvertAmqpException(e);
         }
+
     }
 
     /**
@@ -162,6 +164,7 @@ public class Exchange implements IExchange {
     /**
      *
      */
+    @Override
     public void shutdown() {
         _executorService.shutdown();
     }

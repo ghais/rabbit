@@ -6,6 +6,7 @@
  */
 package com.convert.rabbit.exchange;
 
+import java.io.IOException;
 import java.util.concurrent.Future;
 
 import com.convert.rabbit.Message;
@@ -19,13 +20,14 @@ public interface IExchange {
 
     /**
      * Publish a message to the given exchange.
-     *
+     * 
      * @param msg
      *            the message to publish.
      * @throws ConvertAmqpException
      *             a runtime exception in case of any exceptions.
+     * @throws IOException
      */
-    void publish(Message msg) throws ConvertAmqpException;
+    void publish(Message msg) throws ConvertAmqpException, IOException;
 
     /**
      * Publish a message to the exchange asynchronously.

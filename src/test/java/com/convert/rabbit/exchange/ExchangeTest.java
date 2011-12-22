@@ -42,7 +42,7 @@ public class ExchangeTest {
         int count = 0;
         final String exchangeName = UUID.randomUUID().toString();
         final Client client = new Client();
-        client.getExchange(exchangeName); // just creates the exchange.
+        final Exchange exchange = client.getExchange(exchangeName);
         Runnable r = new Runnable() {
 
             @Override
@@ -50,28 +50,32 @@ public class ExchangeTest {
                 for (int i = 0; i < 1000; i++) {
                     final String message = "Hello world, this is message # " + i;
 
-                    client.getExchange(exchangeName).publish(new Message() {
+                    try {
+                        exchange.publish(new Message() {
 
-                        @Override
-                        public boolean isMandatory() {
-                            return false;
-                        }
+                            @Override
+                            public boolean isMandatory() {
+                                return false;
+                            }
 
-                        @Override
-                        public boolean isImmedaite() {
-                            return false;
-                        }
+                            @Override
+                            public boolean isImmedaite() {
+                                return false;
+                            }
 
-                        @Override
-                        public String getRoutingKey() {
-                            return "x.y";
-                        }
+                            @Override
+                            public String getRoutingKey() {
+                                return "x.y";
+                            }
 
-                        @Override
-                        public byte[] getBody() {
-                            return (message).getBytes();
-                        }
-                    });
+                            @Override
+                            public byte[] getBody() {
+                                return (message).getBytes();
+                            }
+                        });
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
 
             }

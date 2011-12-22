@@ -139,19 +139,17 @@ public class Client {
      * @param listener
      * @throws NullPointerException
      *             if the listener is null.
-     * @throws ConvertAmqpException
-     *             in case of an {@link IOException}
+     * 
+     * @throws NullPointerException
+     * @throws IOException
      */
-    public Client(String host, int port, MessageListener listener) throws NullPointerException, ConvertAmqpException {
+    public Client(String host, int port, MessageListener listener) throws NullPointerException, IOException {
         _factory = new ConnectionFactory();
         _factory.setHost(host);
         _factory.setPort(port);
 
-        try {
-            _connection = _factory.newConnection();
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
+        _connection = _factory.newConnection();
+
         this._messageListener = checkNotNull(listener);
 
     }
@@ -163,6 +161,8 @@ public class Client {
      * @param name
      *            the name of the exchange
      * @return an instance of the exchange with the given name
+     * @throws ConvertAmqpException
+     *             in case of an {@link IOException}
      */
     public Exchange getExchange(String name) {
         Exchange exchange = _exchanges.get(name);
@@ -170,7 +170,11 @@ public class Client {
             return exchange;
         }
 
-        exchange = new Exchange(this, name);
+        try {
+            exchange = new Exchange(this, name);
+        } catch (IOException e) {
+            throw new ConvertAmqpException(e);
+        }
         Exchange temp = _exchanges.putIfAbsent(name, exchange);
         if (null != temp) {
             return temp;
