@@ -20,6 +20,8 @@ import com.rabbitmq.client.ShutdownListener;
  */
 public class Client {
 
+    public static final int DEFAULT_AMQP_PORT = ConnectionFactory.DEFAULT_AMQP_PORT;
+
     /**
      * A listener that combines the {@link ReturnListener} and the {@link ShutdownListener}
      *
@@ -139,7 +141,7 @@ public class Client {
      * @param listener
      * @throws NullPointerException
      *             if the listener is null.
-     * 
+     *
      * @throws NullPointerException
      * @throws IOException
      */
