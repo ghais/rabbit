@@ -1,5 +1,8 @@
 package com.convert.rabbit.exchange.workerqueue;
 
+import static com.yammer.metrics.Metrics.newMeter;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +22,9 @@ import com.convert.rabbit.exchange.IExchange;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.MessageProperties;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.GaugeMetric;
+import com.yammer.metrics.core.MeterMetric;
 
 /**
  * A worker queue implementation that publishes messages to a given exchange/queue
@@ -32,7 +38,11 @@ public class WorkerQueue implements IExchange {
 
     private final GenericObjectPool _channelPool;
 
-    private final ExecutorService _executorService;
+    private final ExecutorService _executorService = Executors.newCachedThreadPool();
+
+    private final MeterMetric requests;
+
+    private final MeterMetric asyncRequests;
 
 
     /**
@@ -44,7 +54,6 @@ public class WorkerQueue implements IExchange {
     public WorkerQueue(Exchange exchange, String workerQueueName) {
         this._exchange = exchange;
         this._workerQueueName = workerQueueName;
-        this._executorService = Executors.newCachedThreadPool();
         this._channelPool = new GenericObjectPool(new PoolableObjectFactory() {
 
             @Override
@@ -83,6 +92,26 @@ public class WorkerQueue implements IExchange {
             }
         });
 
+        requests = newMeter(Exchange.class, this._workerQueueName + " requests", "requests", SECONDS);
+
+        asyncRequests = newMeter(Exchange.class, this._workerQueueName + " async-requests", "async-requests", SECONDS);
+
+        Metrics.newGauge(Exchange.class, this._workerQueueName + " active-channels", new GaugeMetric<Integer>() {
+
+            @Override
+            public Integer value() {
+                return _channelPool.getNumActive();
+            }
+        });
+
+        Metrics.newGauge(Exchange.class, this._workerQueueName + " idle-channels", new GaugeMetric<Integer>() {
+
+            @Override
+            public Integer value() {
+                return _channelPool.getNumIdle();
+            }
+        });
+
     }
 
     /**
@@ -111,6 +140,7 @@ public class WorkerQueue implements IExchange {
      */
     @Override
     public void publish(Message msg) throws IOException {
+        requests.mark();
         Channel channel = this.borrowChannel();
         try {
             channel.basicPublish(_exchange.getName(), "", MessageProperties.PERSISTENT_BASIC, msg.getBody());
@@ -140,6 +170,7 @@ public class WorkerQueue implements IExchange {
 
     @Override
     public Future<Void> asyncPublish(final Message msg) {
+        asyncRequests.mark();
         Callable<Void> callable = new Callable<Void>() {
 
             @Override

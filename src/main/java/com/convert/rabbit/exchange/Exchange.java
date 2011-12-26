@@ -1,5 +1,8 @@
 package com.convert.rabbit.exchange;
 
+import static com.yammer.metrics.Metrics.newMeter;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -14,6 +17,9 @@ import com.convert.rabbit.Client;
 import com.convert.rabbit.Message;
 import com.convert.rabbit.exception.ConvertAmqpException;
 import com.rabbitmq.client.Channel;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.GaugeMetric;
+import com.yammer.metrics.core.MeterMetric;
 
 /**
  * This is a thread safe way to talk to an exchange. All the channels used by the exchange are pooled.
@@ -30,6 +36,10 @@ public class Exchange implements IExchange {
     private final GenericObjectPool _channelPool;
 
     private final ExecutorService _executorService = Executors.newCachedThreadPool();
+
+    private final MeterMetric requests;
+
+    private final MeterMetric asyncRequests;
 
     /**
      * An exchange that is is declared from the given client for the given name.
@@ -75,8 +85,28 @@ public class Exchange implements IExchange {
             }
         });
 
-            Channel c = this.borrowChannel();
-            c.exchangeDeclare(_name, "topic", true, false, null);
+        Channel c = this.borrowChannel();
+        c.exchangeDeclare(_name, "topic", true, false, null);
+
+        requests = newMeter(Exchange.class, this._name + " requests", "requests", SECONDS);
+
+        asyncRequests = newMeter(Exchange.class, this._name + " async-requests", "async-requests", SECONDS);
+
+        Metrics.newGauge(Exchange.class, this._name + " active-channels", new GaugeMetric<Integer>() {
+
+            @Override
+            public Integer value() {
+                return _channelPool.getNumActive();
+            }
+        });
+
+        Metrics.newGauge(Exchange.class, this._name + " idle-channels", new GaugeMetric<Integer>() {
+
+            @Override
+            public Integer value() {
+                return _channelPool.getNumIdle();
+            }
+        });
 
     }
 
@@ -91,6 +121,7 @@ public class Exchange implements IExchange {
      */
     @Override
     public void publish(Message msg) throws IOException {
+        requests.mark();
         Channel channel = this.borrowChannel();
         try {
             channel.basicPublish(_name, msg.getRoutingKey(), msg.isMandatory(), msg.isImmedaite(), null, msg.getBody());
@@ -101,14 +132,15 @@ public class Exchange implements IExchange {
 
     /**
      * Publish a given message to this exchange asynchronously.
-     * 
+     *
      * @param msg
      *            the message.
-     * 
+     *
      * @return a {@link Future}
      */
     @Override
     public Future<Void> asyncPublish(final Message msg) {
+        asyncRequests.mark();
         Callable<Void> callable = new Callable<Void>() {
 
             @Override
