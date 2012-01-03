@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.convert</groupId>
   <artifactId>rabbit</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <name>rabbit</name>
   <description>Thread safe way to talk to RabbiMQ</description>
   <url>http://github.com/ghais/RabbitClient</url>	
@@ -19,29 +19,20 @@
       <version>1.5.6</version>
     </dependency>
     <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>11.0</version>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.8.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.google.inject</groupId>
-      <artifactId>guice</artifactId>
-      <version>3.0</version>
-      <type>jar</type>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
-      <version>1.2.16</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
       <groupId>com.rabbitmq</groupId>
       <artifactId>amqp-client</artifactId>
-      <version>2.6.0</version>
+      <version>2.7.1</version>
     </dependency>
   </dependencies>
   <build>

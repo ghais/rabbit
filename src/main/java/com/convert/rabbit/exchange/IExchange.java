@@ -7,14 +7,14 @@
 package com.convert.rabbit.exchange;
 
 import java.io.IOException;
-import java.util.concurrent.Future;
 
 import com.convert.rabbit.Message;
 import com.convert.rabbit.exception.ConvertAmqpException;
+import com.google.common.util.concurrent.ListenableFuture;
 
 /**
  * the exchange service.
- *
+ * 
  */
 public interface IExchange {
 
@@ -31,15 +31,17 @@ public interface IExchange {
 
     /**
      * Publish a message to the exchange asynchronously.
-     *
+     * 
      * @param msg
      *            the message to publish.
      * @return a future for the completion of the operation.
      */
-    Future<Void> asyncPublish(Message msg);
+    ListenableFuture<Void> asyncPublish(Message msg);
 
     /**
      * Shuts down this exchange service.
+     * 
+     * @throws IOException
      */
-    void shutdown();
+    void shutdown() throws IOException;
 }

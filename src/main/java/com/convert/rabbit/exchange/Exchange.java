@@ -5,9 +5,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.apache.commons.pool.PoolableObjectFactory;
@@ -16,6 +16,9 @@ import org.apache.commons.pool.impl.GenericObjectPool;
 import com.convert.rabbit.Client;
 import com.convert.rabbit.Message;
 import com.convert.rabbit.exception.ConvertAmqpException;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.rabbitmq.client.Channel;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.GaugeMetric;
@@ -23,7 +26,7 @@ import com.yammer.metrics.core.MeterMetric;
 
 /**
  * This is a thread safe way to talk to an exchange. All the channels used by the exchange are pooled.
- *
+ * 
  */
 public class Exchange implements IExchange {
 
@@ -35,7 +38,8 @@ public class Exchange implements IExchange {
 
     private final GenericObjectPool _channelPool;
 
-    private final ExecutorService _executorService = Executors.newCachedThreadPool();
+    private final ListeningExecutorService _executorService = MoreExecutors.listeningDecorator(Executors
+            .newCachedThreadPool());
 
     private final MeterMetric requests;
 
@@ -43,7 +47,7 @@ public class Exchange implements IExchange {
 
     /**
      * An exchange that is is declared from the given client for the given name.
-     *
+     * 
      * @param client
      * @param name
      * @throws IOException
@@ -112,11 +116,11 @@ public class Exchange implements IExchange {
 
     /**
      * Publish a given message to this exchange.
-     *
+     * 
      * @param msg
      *            the message.
-     *
-     *
+     * 
+     * 
      * @throws IOException
      */
     @Override
@@ -132,14 +136,14 @@ public class Exchange implements IExchange {
 
     /**
      * Publish a given message to this exchange asynchronously.
-     *
+     * 
      * @param msg
      *            the message.
-     *
+     * 
      * @return a {@link Future}
      */
     @Override
-    public Future<Void> asyncPublish(final Message msg) {
+    public ListenableFuture<Void> asyncPublish(final Message msg) {
         asyncRequests.mark();
         Callable<Void> callable = new Callable<Void>() {
 
@@ -182,7 +186,7 @@ public class Exchange implements IExchange {
 
     /**
      * Get the client
-     *
+     * 
      * @return
      */
     public Client getClient() {
@@ -194,11 +198,34 @@ public class Exchange implements IExchange {
     }
 
     /**
-     *
+     * @throws Exception
+     * 
      */
     @Override
-    public void shutdown() {
+    public void shutdown() throws IOException {
         _executorService.shutdown();
+        try {
+            // Wait a while for existing tasks to terminate
+            if (!_executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                _executorService.shutdownNow(); // Cancel currently executing tasks
+                // Wait a while for tasks to respond to being cancelled
+                if (!_executorService.awaitTermination(60, TimeUnit.SECONDS))
+                    LOG.severe("Pool did not terminate");
+            }
+        } catch (InterruptedException ie) {
+            // (Re-)Cancel if current thread also interrupted
+            _executorService.shutdownNow();
+            // Preserve interrupt status
+            Thread.currentThread().interrupt();
+        }
+
+        try {
+            _channelPool.close();
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }
