@@ -21,8 +21,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.rabbitmq.client.Channel;
 import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.GaugeMetric;
-import com.yammer.metrics.core.MeterMetric;
+import com.yammer.metrics.core.Gauge;
+import com.yammer.metrics.core.Meter;
 
 /**
  * This is a thread safe way to talk to an exchange. All the channels used by the exchange are pooled.
@@ -36,14 +36,14 @@ public class Exchange implements IExchange {
 
     private final Client _client;
 
-    private final GenericObjectPool _channelPool;
+    private final GenericObjectPool<Channel> _channelPool;
 
     private final ListeningExecutorService _executorService = MoreExecutors.listeningDecorator(Executors
             .newCachedThreadPool());
 
-    private final MeterMetric requests;
+    private final Meter requests;
 
-    private final MeterMetric asyncRequests;
+    private final Meter asyncRequests;
 
     /**
      * An exchange that is is declared from the given client for the given name.
@@ -56,20 +56,19 @@ public class Exchange implements IExchange {
         this._client = client;
         this._name = name;
 
-        _channelPool = new GenericObjectPool(new PoolableObjectFactory() {
+        _channelPool = new GenericObjectPool<Channel>(new PoolableObjectFactory<Channel>() {
 
             @Override
-            public boolean validateObject(Object obj) {
-                Channel c = (Channel) obj;
-                return c.isOpen();
+            public boolean validateObject(Channel ch) {
+                return ch.isOpen();
             }
 
             @Override
-            public void passivateObject(Object obj) throws Exception {
+            public void passivateObject(Channel ch) throws Exception {
             }
 
             @Override
-            public Object makeObject() throws Exception {
+            public Channel makeObject() throws Exception {
                 Channel c = _client.getConnection().createChannel();
                 if (null != _client.getMessageListener()) {
                     c.addReturnListener(_client.getMessageListener());
@@ -79,13 +78,12 @@ public class Exchange implements IExchange {
             }
 
             @Override
-            public void destroyObject(Object obj) throws Exception {
-                Channel c = (Channel) obj;
-                c.close();
+            public void destroyObject(Channel ch) throws Exception {
+                ch.close();
             }
 
             @Override
-            public void activateObject(Object obj) throws Exception {
+            public void activateObject(Channel ch) throws Exception {
             }
         });
 
@@ -96,7 +94,7 @@ public class Exchange implements IExchange {
 
         asyncRequests = newMeter(Exchange.class, this._name + " async-requests", "async-requests", SECONDS);
 
-        Metrics.newGauge(Exchange.class, this._name + " active-channels", new GaugeMetric<Integer>() {
+        Metrics.newGauge(Exchange.class, this._name + " active-channels", new Gauge<Integer>() {
 
             @Override
             public Integer value() {
@@ -104,7 +102,7 @@ public class Exchange implements IExchange {
             }
         });
 
-        Metrics.newGauge(Exchange.class, this._name + " idle-channels", new GaugeMetric<Integer>() {
+        Metrics.newGauge(Exchange.class, this._name + " idle-channels", new Gauge<Integer>() {
 
             @Override
             public Integer value() {
@@ -174,7 +172,7 @@ public class Exchange implements IExchange {
      */
     private Channel borrowChannel() throws IOException {
         try {
-            return (Channel) this._channelPool.borrowObject();
+            return this._channelPool.borrowObject();
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {

@@ -48,13 +48,9 @@ public class Client {
      * @throws ConvertAmqpException
      *             in case of an {@link IOException} when trying to create the connection.
      */
-    public Client() throws ConvertAmqpException {
+    public Client() throws IOException {
         _factory = new ConnectionFactory();
-        try {
-            _connection = _factory.newConnection();
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
+        _connection = _factory.newConnection();
         _messageListener = null;
     }
 
@@ -64,18 +60,14 @@ public class Client {
      * @param MessageListener
      *            a message listener to use for all messages.
      * 
-     * @throws ConvertAmqpException
-     *             a runtime exception in case of an {@link IOException}.
+     * @throws IOException
+     *             an {@link IOException}
      * @throws NullPointerException
      *             if the messageListener is null.
      */
-    public Client(MessageListener messageListener) throws ConvertAmqpException, NullPointerException {
+    public Client(MessageListener messageListener) throws IOException, NullPointerException {
         _factory = new ConnectionFactory();
-        try {
-            _connection = _factory.newConnection();
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
+        _connection = _factory.newConnection();
         this._messageListener = checkNotNull(messageListener);
     }
 
@@ -84,17 +76,13 @@ public class Client {
      * 
      * @param host
      *            the host address.
-     * @throws ConvertAmqpException
-     *             in case of an {@link IOException}
+     * @throws IOException
+     * 
      */
-    public Client(String host) throws ConvertAmqpException {
+    public Client(String host) throws IOException {
         _factory = new ConnectionFactory();
         _factory.setHost(host);
-        try {
-            _connection = _factory.newConnection();
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
+        _connection = _factory.newConnection();
         this._messageListener = null;
     }
 
@@ -107,30 +95,21 @@ public class Client {
      *            a {@link MessageListener} implementation
      * @throws NullPointerException
      *             if the listener is null.
-     * @throws ConvertAmqpException
+     * @throws IOException
      *             in case of an {@link IOException}
      */
-    public Client(String host, MessageListener listener) throws NullPointerException, ConvertAmqpException {
+    public Client(String host, MessageListener listener) throws NullPointerException, IOException {
         _factory = new ConnectionFactory();
         _factory.setHost(host);
-        try {
-            _connection = _factory.newConnection();
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
+        _connection = _factory.newConnection();
         this._messageListener = checkNotNull(listener);
     }
 
-    public Client(String host, int port) {
+    public Client(String host, int port) throws IOException {
         _factory = new ConnectionFactory();
         _factory.setHost(host);
         _factory.setPort(port);
-
-        try {
-            _connection = _factory.newConnection();
-        } catch (IOException e) {
-            throw new ConvertAmqpException(e);
-        }
+        _connection = _factory.newConnection();
         this._messageListener = null;
     }
 
