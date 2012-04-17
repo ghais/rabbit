@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.convert</groupId>
   <artifactId>rabbit</artifactId>
-  <version>0.3.1</version>
+  <version>0.3.2-SNAPSHOT</version>
   <name>rabbit</name>
   <description>Thread safe way to talk to RabbiMQ</description>
   <url>http://github.com/ghais/rabbit</url>
